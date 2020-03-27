@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 
+esp_err_t esp_err;
 spi_device_handle_t sdh;//SPI设备句柄
 const uint8_t F6x8[][6];
 
@@ -27,10 +28,18 @@ void oledInit(void)
     devcfg.mode = 0;
     devcfg.spics_io_num = -1;//不需要CS脚
     devcfg.queue_size = 7;
+    devcfg.address_bits = 0;
+    devcfg.command_bits = 0;
     
-    spi_bus_initialize(SPI2_HOST,&buscfg,0);//初始化SPI总线
-    spi_bus_add_device(SPI2_HOST,&devcfg,sdh);//通知驱动有个SPI设备接到总线上
-
+    printf("init spi\r\n");
+    esp_err = spi_bus_initialize(SPI2_HOST,&buscfg,0);//初始化SPI总线
+    printf("esp_err:%d\r\n",esp_err);
+    //ESP_ERROR_CHECK(esp_err);s
+    if(esp_err == 0)esp_err = spi_bus_add_device(SPI2_HOST,&devcfg,&sdh);//通知驱动有个SPI设备接到总线上
+    printf("esp_err:%d\r\n",esp_err);
+    //ESP_ERROR_CHECK(esp_err);
+    
+    /*
     gpio_pad_select_gpio(OLED_DAT_IO);
     gpio_set_direction(OLED_DAT_IO,GPIO_MODE_OUTPUT);
     gpio_pad_select_gpio(OLED_CLK_IO);
@@ -39,7 +48,7 @@ void oledInit(void)
     gpio_set_direction(OLED_RST_IO,GPIO_MODE_OUTPUT);
     gpio_pad_select_gpio(OLED_DC_IO);
     gpio_set_direction(OLED_DC_IO,GPIO_MODE_OUTPUT);
-
+    */
     //复位OLED
     OLED_CLK_SET(1);
     OLED_RST_SET(0);  
@@ -63,7 +72,7 @@ void oledInit(void)
     oledSetEntireDisplay(0x00);    // Disable Entire Display On (0x00/0x01)
     oledSetInverseDisplay(0x00);   // Disable Inverse Display On (0x00/0x01)  
     oledSetDisplayOnOff(0x01);     // Display On (0x00/0x01)
-    oledFill(0x00);            // Clean display
+    oledFill(0xFF);            // Clean display
 }
 
 void oledShowString(uint8_t x, uint8_t y,char *str)
@@ -98,7 +107,7 @@ void oledShowChrP6x8(uint8_t ucIdxX, uint8_t ucIdxY, uint8_t ucData)
 //写入数据/命令
 static void oledWrite(oled_dc_t dc, uint8_t byte)
 {
-    uint8_t i = 8;
+    /*uint8_t i = 8;
     OLED_DC_SET(dc);
     OLED_CLK_SET(0);
     while (i--)
@@ -111,7 +120,13 @@ static void oledWrite(oled_dc_t dc, uint8_t byte)
         OLED_CLK_SET(1);
         OLED_CLK_SET(0);
         byte <<= 1;    
-    }
+    }*/
+    OLED_DC_SET(dc);
+    spi_transaction_t st;
+    st.flags = SPI_TRANS_USE_TXDATA;
+    st.length = sizeof(uint8_t);
+    st.tx_data[0] = byte;
+    spi_device_transmit(sdh,&st);
 }
 
 //设定坐标
