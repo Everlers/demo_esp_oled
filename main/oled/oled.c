@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 
+spi_device_handle_t sdh;//SPI设备句柄
 const uint8_t F6x8[][6];
 
 static void oledWrite(oled_dc_t dc, uint8_t byte);
@@ -13,6 +14,22 @@ static void oledWrite(oled_dc_t dc, uint8_t byte);
 void oledInit(void)
 {
     //配置SPI
+    spi_bus_config_t buscfg;
+    spi_device_interface_config_t devcfg;
+
+    buscfg.miso_io_num = GPIO_NUM_12;
+    buscfg.mosi_io_num = GPIO_NUM_13;
+    buscfg.sclk_io_num = GPIO_NUM_14;
+    buscfg.quadhd_io_num = -1;
+    buscfg.quadwp_io_num = -1;
+
+    devcfg.clock_speed_hz = SPI_MASTER_FREQ_80M;//配置SPI速度
+    devcfg.mode = 0;
+    devcfg.spics_io_num = -1;//不需要CS脚
+    devcfg.queue_size = 7;
+    
+    spi_bus_initialize(SPI2_HOST,&buscfg,0);//初始化SPI总线
+    spi_bus_add_device(SPI2_HOST,&devcfg,sdh);//通知驱动有个SPI设备接到总线上
 
     gpio_pad_select_gpio(OLED_DAT_IO);
     gpio_set_direction(OLED_DAT_IO,GPIO_MODE_OUTPUT);
