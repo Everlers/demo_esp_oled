@@ -12,9 +12,17 @@ const uint8_t F6x8[][6];
 
 static void oledWrite(oled_dc_t dc, uint8_t byte);
 
+//此函数调用再传输之前。
+//它可以设置用户DC引脚。
+void lcd_spi_pre_transfer_callback(spi_transaction_t *t)
+{
+    int dc=(int)t->user;
+    gpio_set_level(OLED_DC_IO, dc);
+}
+
 void oledInit(void)
 {
-    //配置SPI
+    //配置SPIOLED_NUIM
     spi_bus_config_t buscfg;
     spi_device_interface_config_t devcfg;
 
@@ -23,32 +31,31 @@ void oledInit(void)
     buscfg.sclk_io_num = GPIO_NUM_14;
     buscfg.quadhd_io_num = -1;
     buscfg.quadwp_io_num = -1;
+    buscfg.max_transfer_sz = 32;
 
     devcfg.clock_speed_hz = SPI_MASTER_FREQ_80M;//配置SPI速度
     devcfg.mode = 0;
     devcfg.spics_io_num = -1;//不需要CS脚
     devcfg.queue_size = 7;
-    devcfg.address_bits = 0;
-    devcfg.command_bits = 0;
-    
+    devcfg.pre_cb = &lcd_spi_pre_transfer_callback;
+
     printf("init spi\r\n");
-    esp_err = spi_bus_initialize(SPI2_HOST,&buscfg,0);//初始化SPI总线
+    esp_err = spi_bus_initialize(SPI3_HOST,&buscfg,0);//初始化SPI总线
     printf("esp_err:%d\r\n",esp_err);
     //ESP_ERROR_CHECK(esp_err);s
-    if(esp_err == 0)esp_err = spi_bus_add_device(SPI2_HOST,&devcfg,&sdh);//通知驱动有个SPI设备接到总线上
+    if(esp_err == 0)esp_err = spi_bus_add_device(SPI3_HOST,&devcfg,&sdh);//通知驱动有个SPI设备接到总线上
     printf("esp_err:%d\r\n",esp_err);
     //ESP_ERROR_CHECK(esp_err);
-    
-    /*
-    gpio_pad_select_gpio(OLED_DAT_IO);
+
+   /* gpio_pad_select_gpio(OLED_DAT_IO);
     gpio_set_direction(OLED_DAT_IO,GPIO_MODE_OUTPUT);
     gpio_pad_select_gpio(OLED_CLK_IO);
-    gpio_set_direction(OLED_CLK_IO,GPIO_MODE_OUTPUT);
+    gpio_set_direction(OLED_CLK_IO,GPIO_MODE_OUTPUT);*/
     gpio_pad_select_gpio(OLED_RST_IO);
     gpio_set_direction(OLED_RST_IO,GPIO_MODE_OUTPUT);
     gpio_pad_select_gpio(OLED_DC_IO);
     gpio_set_direction(OLED_DC_IO,GPIO_MODE_OUTPUT);
-    */
+
     //复位OLED
     OLED_CLK_SET(1);
     OLED_RST_SET(0);  
@@ -57,6 +64,7 @@ void oledInit(void)
 
     //配置OLED
     oledSetDisplayOnOff(0x00);     // Display Off (0x00/0x01)
+    return;
     oledSetDisplayClock(0x80);     // Set Clock as 100 Frames/Sec
     oledSetMultiplexRatio(0x3F);   // 1/64 Duty (0x0F~0x3F)
     oledSetDisplayOffset(0x00);    // Shift Mapping RAM Counter (0x00~0x3F)
@@ -72,7 +80,7 @@ void oledInit(void)
     oledSetEntireDisplay(0x00);    // Disable Entire Display On (0x00/0x01)
     oledSetInverseDisplay(0x00);   // Disable Inverse Display On (0x00/0x01)  
     oledSetDisplayOnOff(0x01);     // Display On (0x00/0x01)
-    oledFill(0xFF);            // Clean display
+    oledFill(0x00);            // Clean display
 }
 
 void oledShowString(uint8_t x, uint8_t y,char *str)
@@ -121,11 +129,11 @@ static void oledWrite(oled_dc_t dc, uint8_t byte)
         OLED_CLK_SET(0);
         byte <<= 1;    
     }*/
-    OLED_DC_SET(dc);
     spi_transaction_t st;
     st.flags = SPI_TRANS_USE_TXDATA;
     st.length = sizeof(uint8_t);
     st.tx_data[0] = byte;
+    st.user = (void*)dc;
     spi_device_transmit(sdh,&st);
 }
 

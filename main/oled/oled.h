@@ -2,8 +2,8 @@
 #define _OLED_H_
 #include <stdio.h>
 
-#define OLED_DAT_IO                     GPIO_NUM_23
-#define OLED_CLK_IO                     GPIO_NUM_19
+#define OLED_DAT_IO                     GPIO_NUM_13
+#define OLED_CLK_IO                     GPIO_NUM_14
 #define OLED_RST_IO                     GPIO_NUM_18
 #define OLED_DC_IO                      GPIO_NUM_5
 
