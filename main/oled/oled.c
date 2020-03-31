@@ -26,12 +26,12 @@ void oledInit(void)
     
     esp_err_t ret;
     spi_bus_config_t buscfg={
-        .miso_io_num=-1,
+        .miso_io_num=-1,                        //IO配置
         .mosi_io_num=OLED_DAT_IO,
         .sclk_io_num=OLED_CLK_IO,
         .quadwp_io_num=-1,
         .quadhd_io_num=-1,
-        .max_transfer_sz=1
+        .max_transfer_sz=1                      //最大传输字节数
     };
     spi_device_interface_config_t devcfg={
         .clock_speed_hz=SPI_MASTER_FREQ_80M,    //配置时钟
@@ -39,6 +39,10 @@ void oledInit(void)
         .spics_io_num=-1,                       //CS引脚未使用
         .queue_size=7,                          //同时排队7个事务
         .pre_cb=lcd_spi_pre_transfer_callback,  //指定传输前回调以处理DC引脚
+        .flags = SPI_DEVICE_NO_DUMMY            //只使用输出不使用输入，这可以使SPI传输速度达到最快。且可以使用IO矩阵方式不使用IO_MUX都可以达到最高频率。（禁用虚拟位变通和频率检查，禁用时输出频率可达80MHz，即使使用GPIO matrix）
+        //官方解析SPI_DEVICE_NO_DUMMY宏定义都用法：
+        //If the Host only writes data, the dummy bit workaround and the frequency check can be disabled by setting the bit SPI_DEVICE_NO_DUMMY in the member spi_device_interface_config_t::flags. 
+        //When disabled, the output frequency can be 80MHz, even if the GPIO matrix is used.
     };
     //Initialize the SPI bus
     ret=spi_bus_initialize(HSPI_HOST, &buscfg, 0);
