@@ -7,8 +7,6 @@
 #define OLED_RST_IO                     GPIO_NUM_18
 #define OLED_DC_IO                      GPIO_NUM_5
 
-#define OLED_DAT_SET(x)                 gpio_set_level(OLED_DAT_IO,x)
-#define OLED_CLK_SET(x)                 gpio_set_level(OLED_CLK_IO,x)
 #define OLED_RST_SET(x)                 gpio_set_level(OLED_RST_IO,x)
 #define OLED_DC_SET(x)                  gpio_set_level(OLED_DC_IO,x)
 

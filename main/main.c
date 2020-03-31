@@ -13,7 +13,6 @@
 #include "esp_spi_flash.h"
 #include "oled.h"
 
-
 void app_main()
 {
     /* Print chip information */
@@ -31,9 +30,9 @@ void app_main()
     
     //init show
     oledInit();
-    /*oledShowString(0,0,"   ESP32 oled demo");
+    oledShowString(0,0,"   ESP32 oled demo");
     oledShowString(1,0,"  2020-03-27 20:42");
-    oledShowString(2,0,"  ESP-IDF-SDK-v4.0");*/
+    oledShowString(2,0,"  ESP-IDF-SDK-v4.0");
     while(1)
     {
         vTaskDelay(100);

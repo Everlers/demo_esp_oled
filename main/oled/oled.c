@@ -5,11 +5,10 @@
 #include "esp_spi_flash.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include "string.h"
 
-esp_err_t esp_err;
-spi_device_handle_t sdh;//SPI设备句柄
+static spi_device_handle_t spi;
 const uint8_t F6x8[][6];
-
 static void oledWrite(oled_dc_t dc, uint8_t byte);
 
 //此函数调用再传输之前。
@@ -20,51 +19,46 @@ void lcd_spi_pre_transfer_callback(spi_transaction_t *t)
     gpio_set_level(OLED_DC_IO, dc);
 }
 
+//初始化oled
 void oledInit(void)
 {
-    //配置SPIOLED_NUIM
-    spi_bus_config_t buscfg;
-    spi_device_interface_config_t devcfg;
-
-    buscfg.miso_io_num = GPIO_NUM_12;
-    buscfg.mosi_io_num = GPIO_NUM_13;
-    buscfg.sclk_io_num = GPIO_NUM_14;
-    buscfg.quadhd_io_num = -1;
-    buscfg.quadwp_io_num = -1;
-    buscfg.max_transfer_sz = 32;
-
-    devcfg.clock_speed_hz = SPI_MASTER_FREQ_80M;//配置SPI速度
-    devcfg.mode = 0;
-    devcfg.spics_io_num = -1;//不需要CS脚
-    devcfg.queue_size = 7;
-    devcfg.pre_cb = &lcd_spi_pre_transfer_callback;
-
-    printf("init spi\r\n");
-    esp_err = spi_bus_initialize(SPI3_HOST,&buscfg,0);//初始化SPI总线
-    printf("esp_err:%d\r\n",esp_err);
-    //ESP_ERROR_CHECK(esp_err);s
-    if(esp_err == 0)esp_err = spi_bus_add_device(SPI3_HOST,&devcfg,&sdh);//通知驱动有个SPI设备接到总线上
-    printf("esp_err:%d\r\n",esp_err);
-    //ESP_ERROR_CHECK(esp_err);
-
-   /* gpio_pad_select_gpio(OLED_DAT_IO);
-    gpio_set_direction(OLED_DAT_IO,GPIO_MODE_OUTPUT);
-    gpio_pad_select_gpio(OLED_CLK_IO);
-    gpio_set_direction(OLED_CLK_IO,GPIO_MODE_OUTPUT);*/
+    //配置SPI
+    
+    esp_err_t ret;
+    spi_bus_config_t buscfg={
+        .miso_io_num=-1,
+        .mosi_io_num=OLED_DAT_IO,
+        .sclk_io_num=OLED_CLK_IO,
+        .quadwp_io_num=-1,
+        .quadhd_io_num=-1,
+        .max_transfer_sz=1
+    };
+    spi_device_interface_config_t devcfg={
+        .clock_speed_hz=SPI_MASTER_FREQ_80M,    //配置时钟
+        .mode=0,                                //SPI mode 0
+        .spics_io_num=-1,                       //CS引脚未使用
+        .queue_size=7,                          //同时排队7个事务
+        .pre_cb=lcd_spi_pre_transfer_callback,  //指定传输前回调以处理DC引脚
+    };
+    //Initialize the SPI bus
+    ret=spi_bus_initialize(HSPI_HOST, &buscfg, 0);
+    ESP_ERROR_CHECK(ret);
+    //Attach the LCD to the SPI bus
+    ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);
+    ESP_ERROR_CHECK(ret);
+    
     gpio_pad_select_gpio(OLED_RST_IO);
     gpio_set_direction(OLED_RST_IO,GPIO_MODE_OUTPUT);
     gpio_pad_select_gpio(OLED_DC_IO);
     gpio_set_direction(OLED_DC_IO,GPIO_MODE_OUTPUT);
 
     //复位OLED
-    OLED_CLK_SET(1);
     OLED_RST_SET(0);  
     vTaskDelay(100);
     OLED_RST_SET(1);
 
     //配置OLED
     oledSetDisplayOnOff(0x00);     // Display Off (0x00/0x01)
-    return;
     oledSetDisplayClock(0x80);     // Set Clock as 100 Frames/Sec
     oledSetMultiplexRatio(0x3F);   // 1/64 Duty (0x0F~0x3F)
     oledSetDisplayOffset(0x00);    // Shift Mapping RAM Counter (0x00~0x3F)
@@ -83,6 +77,7 @@ void oledInit(void)
     oledFill(0x00);            // Clean display
 }
 
+//显示字符串
 void oledShowString(uint8_t x, uint8_t y,char *str)
 {
     while(*str != '\0')
@@ -115,26 +110,13 @@ void oledShowChrP6x8(uint8_t ucIdxX, uint8_t ucIdxY, uint8_t ucData)
 //写入数据/命令
 static void oledWrite(oled_dc_t dc, uint8_t byte)
 {
-    /*uint8_t i = 8;
-    OLED_DC_SET(dc);
-    OLED_CLK_SET(0);
-    while (i--)
-    {
-        if (byte & 0x80)
-            OLED_DAT_SET(1);
-        else
-            OLED_DAT_SET(0);
-        
-        OLED_CLK_SET(1);
-        OLED_CLK_SET(0);
-        byte <<= 1;    
-    }*/
     spi_transaction_t st;
+    memset(&st,0,sizeof(st));
     st.flags = SPI_TRANS_USE_TXDATA;
-    st.length = sizeof(uint8_t);
+    st.length = 8;//8位数据
     st.tx_data[0] = byte;
     st.user = (void*)dc;
-    spi_device_transmit(sdh,&st);
+    spi_device_polling_transmit(spi,&st);
 }
 
 //设定坐标
